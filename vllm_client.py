@@ -2,7 +2,7 @@ from openai import OpenAI
 
 client = OpenAI(
     base_url="http://axonflow.xyz/v1",
-    api_key="eodbs7149",
+    api_key="cd29090c-b388-45c9-8dbf-8e685513ed1b",
 )
 
 completion = client.chat.completions.create(
