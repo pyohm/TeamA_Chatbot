@@ -1,16 +1,17 @@
 from openai import OpenAI
 
-client = OpenAI(
-    base_url="http://axonflow.xyz/v1",
-    api_key="cd29090c-b388-45c9-8dbf-8e685513ed1b",
+client = OpenAI(api_key= "EMPTY",
+                base_url= "http://axonflow.xyz/v1")
+
+chat_completion = client.chat.completions.create(
+    messages=[
+        {
+            "role": "user",
+            "content": "안녕",
+        }
+    ],
+    model="Qwen/Qwen2-VL-2B-Instruct",
+    stream=False,
 )
 
-completion = client.chat.completions.create(
-  model="meta-llama/Llama-3.2-3B-Instruct",
-  max_tokens=300,
-  messages=[
-    {"role": "user", "content": "안녕?"}
-  ]
-)
-
-print(completion.choices[0].message)
+print(chat_completion.choices[0].message.content)
