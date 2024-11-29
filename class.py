@@ -142,7 +142,13 @@ class GRADIO:
                 ],},
             ]
         else:
-            return "", chat_history
+            prompt = [
+                {'role': 'system', 'content':
+                    "If the necessary information is insufficient, please provide an answer based on general knowledge."
+                    + "\nPlease use the language in your response that matches the language in which the question is asked."
+                    + "\nWhen answering, please use a polite tone and answer systematically and with good visibility."},
+                {'role': 'user', 'content': msg}
+            ]
 
         # LLM에 쿼리하기
         prompt = history + prompt
