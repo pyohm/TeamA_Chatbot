@@ -6,6 +6,9 @@ import PyPDF2
 import gradio as gr
 import base64
 
+#pip install requirements.txt 설치후
+#python -m spacy download ko_core_news_sm 설치후 사용 
+
 class IMAGE:
     def __init__(self, image_path):
         self.image_path = image_path
