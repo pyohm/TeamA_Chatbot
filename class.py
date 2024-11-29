@@ -2,10 +2,7 @@ from openai import OpenAI
 import spacy
 from sentence_transformers import SentenceTransformer
 import faiss
-import numpy as np
 import PyPDF2
-from PIL import Image
-from transformers import BlipProcessor, BlipForConditionalGeneration
 import gradio as gr
 import base64
 
@@ -22,10 +19,8 @@ class IMAGE:
 
 class RAG:
     def __init__(self, file_path):
-        self.nlp = spacy.load("en_core_web_sm")
+        self.nlp = spacy.load("ko_core_news_sm")
         self.embedder = SentenceTransformer('all-MiniLM-L6-v2')
-        self.blip_processor = BlipProcessor.from_pretrained("Salesforce/blip-image-captioning-base")
-        self.blip_model = BlipForConditionalGeneration.from_pretrained("Salesforce/blip-image-captioning-base")
 
         self.make_index(file_path)
 
@@ -77,24 +72,27 @@ class GRADIO:
         self.image = None
         self.pdf_name = None
         self.image_name = None
-        # LLM에 쿼리하기
         self.client = OpenAI(api_key=api_key,
                              base_url="http://axonflow.xyz/v1")
 
         with gr.Blocks() as self.demo:
             chatbot = gr.Chatbot(type="messages")
             with gr.Row():
-                msg = gr.Textbox(placeholder="Enter your question here...", container=False, scale=7)
-                send_btn = gr.Button("Send")
-                send_btn.click(self.respond, [msg, chatbot], [msg, chatbot])
+                with gr.Column(scale=7):
+                    msg = gr.Textbox(placeholder="Enter your question here...", container=True)
+                    with gr.Row():
+                        image_input = gr.Image(label="Upload an Image", type="filepath", scale=1)
+                        pdf_upload = gr.File(label="Upload a PDF",
+                                          file_types=[".pdf"],
+                                          container=True, scale=1)
+                with gr.Column(scale=1):
+                    send_btn = gr.Button("Send")
+            
+            image_input.upload(self.upload_file_image, inputs=image_input)
+            pdf_upload.upload(self.upload_file_rag, inputs=pdf_upload)
+            send_btn.click(self.respond, [msg, chatbot], [msg, chatbot])
+            
             with gr.Row():
-                image_input = gr.Image(label="Upload an Image", type="filepath")
-                image_input.upload(self.upload_file_image, inputs=image_input)
-                pdf_upload = gr.File(label="Upload a file (optional)",
-                                      file_types=[".pdf"],
-                                      container=False, scale=3)
-                pdf_upload.upload(self.upload_file_rag, inputs=pdf_upload)
-            with gr.Column():
                 clear = gr.ClearButton([msg, chatbot])
 
     def upload_file_rag(self, file):
@@ -119,7 +117,7 @@ class GRADIO:
         if self.rag is not None:
             results = self.rag.search(msg)
             prompt = [
-                {'role': 'system', 'content': 'Current fileName: ' + self.file_name.split('\\')[-1]},
+                {'role': 'system', 'content': 'Current fileName: ' + self.pdf_name.split('\\')[-1]},
                 {'role': 'system', 'content': 'fileData: ' + '\n'.join(results)},
                 {'role': 'system', 'content':
                     "If the necessary information is insufficient, please provide an answer based on general knowledge."
@@ -161,12 +159,9 @@ class GRADIO:
         print('\n\n\n')
 
         if self.rag is not None:
-            msg = msg + "\n**(File: " + self.file_name.split('\\')[-1] + ")"
+            msg = msg + "\n**(File: " + self.pdf_name.split('\\')[-1] + ")"
 
-        chat_history += [
-            {"role": "user", "content": msg},
-            {"role": "assistant", "content": res}
-        ]
+        chat_history.append((msg, res))
         return "", chat_history
 
 
