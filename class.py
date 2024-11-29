@@ -26,13 +26,6 @@ class RAG:
                 text += page.extract_text()
         return text
 
-    def image_to_text(self, image_file):
-        image = Image.open(image_file)
-        inputs = self.blip_processor(images=image, return_tensors="pt")
-        out = self.blip_model.generate(**inputs, max_new_tokens=50)
-        description = self.blip_processor.decode(out[0], skip_special_tokens=True)
-        return description
-
     def text_to_chunks(self, text):
         doc = self.nlp(text)
         return [sent.text for sent in doc.sents]
@@ -52,16 +45,16 @@ class RAG:
     def make_index(self, file_path):
         if file_path.lower().endswith('.pdf'):
             text = self.pdf_to_text(file_path)
-        elif file_path.lower().endswith(('.png', '.jpg', '.jpeg')):
-            text = self.image_to_text(file_path)
+            self.chunks = self.text_to_chunks(text)
+            embeddings = self.embed_chunks(self.chunks)
+            self.index = self.create_index(embeddings)
         else:
-            return
-
-        self.chunks = self.text_to_chunks(text)
-        embeddings = self.embed_chunks(self.chunks)
-        self.index = self.create_index(embeddings)
+            self.chunks = []
+            self.index = None
 
     def search(self, query, k=5):
+        if self.index is None or len(self.chunks) == 0:
+            return []
         if k > len(self.chunks):
             k = len(self.chunks)
         return self.search_index(query, self.index, k)
