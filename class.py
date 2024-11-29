@@ -113,8 +113,11 @@ class GRADIO:
         self.image = IMAGE(self.image_name)
 
     def respond(self, msg, chat_history):
-
-        history = [{"role": h["role"], "content": h["content"]} for h in chat_history]
+        print(chat_history)
+        history = []
+        for h in chat_history:
+            history.append({"role": "assistant", "content": h[0]})
+            history.append({"role": "user", "content": h[1]})
 
         # api 요청 데이터 생성
         if self.rag is not None:
