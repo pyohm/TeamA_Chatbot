@@ -7,7 +7,18 @@ import PyPDF2
 from PIL import Image
 from transformers import BlipProcessor, BlipForConditionalGeneration
 import gradio as gr
+import base64
 
+class IMAGE:
+    def __init__(self, image_path):
+        self.image_path = image_path
+    
+    def encode_base64_content_from_file(self, image_path: str = None) -> str:
+        """이미지 파일을 base64 형식으로 인코딩"""
+        path = image_path or self.image_path
+        with open(path, "rb") as image_file:
+            encoded_string = base64.b64encode(image_file.read()).decode('utf-8')
+        return encoded_string
 
 class RAG:
     def __init__(self, file_path):
@@ -63,7 +74,9 @@ class RAG:
 class GRADIO:
     def __init__(self, api_key):
         self.rag = None
-        self.file_name = ""
+        self.image = None
+        self.pdf_name = None
+        self.image_name = None
         # LLM에 쿼리하기
         self.client = OpenAI(api_key=api_key,
                              base_url="http://axonflow.xyz/v1")
@@ -75,16 +88,28 @@ class GRADIO:
                 send_btn = gr.Button("Send")
                 send_btn.click(self.respond, [msg, chatbot], [msg, chatbot])
             with gr.Row():
-                file_upload = gr.File(label="Upload a file (optional)",
-                                      file_types=[".png", ".jpg", ".jpeg", ".pdf"],
+                image_input = gr.Image(label="Upload an Image", type="filepath")
+                image_input.upload(self.upload_file_image, inputs=image_input)
+                pdf_upload = gr.File(label="Upload a file (optional)",
+                                      file_types=[".pdf"],
                                       container=False, scale=3)
-                file_upload.upload(self.upload_file, inputs=file_upload)
-                with gr.Column():
-                    clear = gr.ClearButton([msg, chatbot])
+                pdf_upload.upload(self.upload_file_rag, inputs=pdf_upload)
+            with gr.Column():
+                clear = gr.ClearButton([msg, chatbot])
 
-    def upload_file(self, file):
-        self.file_name = file.name
-        self.rag = RAG(self.file_name)
+    def upload_file_rag(self, file):
+        self.pdf_name = file.name
+        self.rag = RAG(self.pdf_name)
+    
+    def upload_file_image(self, file_path):
+        """
+        file_path: 이미지 파일의 경로 (문자열)
+        """
+        if file_path is None:
+            return
+        
+        self.image_name = file_path  # 파일 경로를 직접 저장
+        self.image = IMAGE(self.image_name)
 
     def respond(self, msg, chat_history):
 
@@ -102,14 +127,21 @@ class GRADIO:
                     + "\nWhen answering, please use a polite tone and answer systematically and with good visibility."},
                 {'role': 'user', 'content': msg}
             ]
-        else:
+        elif self.image is not None:
             prompt = [
                 {'role': 'system', 'content':
                     "Please provide an answer based on your general knowledge. "
                     + "\nPlease use the language in your response that matches the language in which the question is asked."
                     + "\nWhen answering, please use a polite tone and answer systematically and with good visibility."},
-                {'role': 'user', 'content': msg}
+                
+                {'role': 'user', 'content': [
+                    {"type": "text", "text": msg},
+                    {"type": "image_url", 
+                     "image_url": {"url": f"data:image/jpeg;base64,{self.image.encode_base64_content_from_file(self.image_name)}"}},
+                ],},
             ]
+        else:
+            return "", chat_history
 
         # LLM에 쿼리하기
         prompt = history + prompt
@@ -138,4 +170,4 @@ class GRADIO:
         return "", chat_history
 
 
-g = GRADIO(api_key=input()).demo.launch(debug=True)
+g = GRADIO(api_key="EMPTY").demo.launch(debug=True)
