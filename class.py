@@ -1,13 +1,14 @@
+import gradio as gr
+import plotly.express as px
 from openai import OpenAI
 import spacy
 from sentence_transformers import SentenceTransformer
 import faiss
 import PyPDF2
-import gradio as gr
 import base64
 
-#pip install -r requirements.txt 설치후
-#python -m spacy download ko_core_news_sm 설치후 사용 
+# pip install -r requirements.txt
+# python -m spacy download ko_core_news_sm
 
 class IMAGE:
     def __init__(self, image_path):
@@ -68,89 +69,70 @@ class RAG:
             k = len(self.chunks)
         return self.search_index(query, self.index, k)
 
-
 class GRADIO:
     def __init__(self, api_key):
         self.rag = None
         self.image = None
         self.pdf_name = None
         self.image_name = None
-        self.client = OpenAI(api_key=api_key,
-                             base_url="http://axonflow.xyz/v1")
+        self.client = OpenAI(api_key=api_key, base_url="http://axonflow.xyz/v1")
 
-        with gr.Blocks() as self.demo:
-            chatbot = gr.Chatbot(type="messages")
+        with gr.Blocks(fill_height=True) as self.demo:
+            chatbot = gr.Chatbot(elem_id="chatbot", bubble_full_width=False, scale=1)
+            chat_input = gr.MultimodalTextbox(interactive=True, file_count="multiple", file_types=[".pdf", ".jpg", ".jpeg", ".png"], placeholder="Enter message or upload file...", show_label=False)
+            chat_msg = chat_input.submit(self.handle_message, [chat_input, chatbot], [chat_input, chatbot])
+            chat_msg.then(lambda: gr.MultimodalTextbox(interactive=True), None, [chat_input])
+
             with gr.Row():
-                with gr.Column(scale=7):
-                    msg = gr.Textbox(placeholder="Enter your question here...", container=True)
-                    with gr.Row():
-                        image_input = gr.Image(label="Upload an Image", type="filepath", scale=1)
-                        pdf_upload = gr.File(label="Upload a PDF",
-                                          file_types=[".pdf"],
-                                          container=True, scale=1)
-                with gr.Column(scale=1):
-                    send_btn = gr.Button("Send")
-            
-            image_input.upload(self.upload_file_image, inputs=image_input)
-            pdf_upload.upload(self.upload_file_rag, inputs=pdf_upload)
-            send_btn.click(self.respond, [msg, chatbot], [msg, chatbot])
-            
-            with gr.Row():
-                clear = gr.ClearButton([msg, chatbot])
+                clear = gr.ClearButton([chat_input, chatbot])
+
+    def handle_message(self, message, chat_history):
+        # 파일 업로드 처리
+        if message['files']:
+            for file in message['files']:
+                if file.name.endswith('.pdf'):
+                    self.upload_file_rag(file)
+                elif file.name.endswith(('.jpg', '.jpeg', '.png')):
+                    self.upload_file_image(file)
+
+        # 메시지 응답 처리
+        return self.respond(message['text'], chat_history)
 
     def upload_file_rag(self, file):
         self.pdf_name = file.name
         self.rag = RAG(self.pdf_name)
     
     def upload_file_image(self, file_path):
-        """
-        file_path: 이미지 파일의 경로 (문자열)
-        """
         if file_path is None:
             return
-        
-        self.image_name = file_path  # 파일 경로를 직접 저장
+        self.image_name = file_path
         self.image = IMAGE(self.image_name)
 
-    def respond(self, msg, chat_history):
-        print(chat_history)
+    def respond(self, message, chat_history):
         history = []
         for h in chat_history:
-            history.append({"role": "assistant", "content": h[0]})
-            history.append({"role": "user", "content": h[1]})
+            if isinstance(h, tuple):
+                history.append({"role": "user", "content": h[0]})
+                history.append({"role": "assistant", "content": h[1]})
 
-        # api 요청 데이터 생성
+        # API 요청 데이터 생성
         if self.rag is not None:
-            results = self.rag.search(msg)
+            results = self.rag.search(message)
             prompt = [
                 {'role': 'system', 'content': 'Current fileName: ' + self.pdf_name.split('\\')[-1]},
                 {'role': 'system', 'content': 'fileData: ' + '\n'.join(results)},
-                {'role': 'system', 'content':
-                    "If the necessary information is insufficient, please provide an answer based on general knowledge."
-                    + "\nPlease use the language in your response that matches the language in which the question is asked."
-                    + "\nWhen answering, please use a polite tone and answer systematically and with good visibility."},
-                {'role': 'user', 'content': msg}
+                {'role': 'system', 'content': "If the necessary information is insufficient, please provide an answer based on general knowledge." + "\nPlease use the language in your response that matches the language in which the question is asked." + "\nWhen answering, please use a polite tone and answer systematically and with good visibility."},
+                {'role': 'user', 'content': message}
             ]
         elif self.image is not None:
             prompt = [
-                {'role': 'system', 'content':
-                    "Please provide an answer based on your general knowledge. "
-                    + "\nPlease use the language in your response that matches the language in which the question is asked."
-                    + "\nWhen answering, please use a polite tone and answer systematically and with good visibility."},
-                
-                {'role': 'user', 'content': [
-                    {"type": "text", "text": msg},
-                    {"type": "image_url", 
-                     "image_url": {"url": f"data:image/jpeg;base64,{self.image.encode_base64_content_from_file(self.image_name)}"}},
-                ],},
+                {'role': 'system', 'content': "Please provide an answer based on your general knowledge. " + "\nPlease use the language in your response that matches the language in which the question is asked." + "\nWhen answering, please use a polite tone and answer systematically and with good visibility."},
+                {'role': 'user', 'content': message}
             ]
         else:
             prompt = [
-                {'role': 'system', 'content':
-                    "If the necessary information is insufficient, please provide an answer based on general knowledge."
-                    + "\nPlease use the language in your response that matches the language in which the question is asked."
-                    + "\nWhen answering, please use a polite tone and answer systematically and with good visibility."},
-                {'role': 'user', 'content': msg}
+                {'role': 'system', 'content': "If the necessary information is insufficient, please provide an answer based on general knowledge." + "\nPlease use the language in your response that matches the language in which the question is asked." + "\nWhen answering, please use a polite tone and answer systematically and with good visibility."},
+                {'role': 'user', 'content': message}
             ]
 
         # LLM에 쿼리하기
@@ -170,11 +152,8 @@ class GRADIO:
         print(res)
         print('\n\n\n')
 
-        if self.rag is not None:
-            msg = msg + "\n**(File: " + self.pdf_name.split('\\')[-1] + ")"
-
-        chat_history.append((msg, res))
+        chat_history.append((message, res))
         return "", chat_history
 
-
-g = GRADIO(api_key="EMPTY").demo.launch(debug=True)
+if __name__ == "__main__":
+    g = GRADIO(api_key="EMPTY").demo.launch(debug=True)
