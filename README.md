@@ -1,5 +1,5 @@
 # Final Term Project - TeamA
-RAG(Retrieval Augmented Generation) System with Opensource  
+**RAG(Retrieval Augmented Generation) System with Opensource**  
 
 팀원: 고대윤, 배별하, 양지훈, 표형민  
 
@@ -18,11 +18,12 @@ RAG(Retrieval Augmented Generation) System with Opensource
  ✅**사용 모델**:  Qwen/Qwen2-VL-2B-Instruct 
 
  ✅**사용 라이브러리**  
-    spaCy(Chunker)
-    Sentence Transformer(Embedder)
-    faiss(Indexing-retrieva), gradio(GUI)
-    vllm(Service)
+    spaCy(Chunker)  
+    Sentence Transformer(Embedder)  
+    faiss(Indexing-retrieva), gradio(GUI)  
+    vllm(Service)  
     PyPDF2(pdf 텍스트 추출)  
+
 
 ✅**이미지처리**  
     이미지를 base64로 인코딩하여 문자열로 변환 ➡️프롬프트로 삽입  
