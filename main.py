@@ -2,7 +2,7 @@ from gradio_app import GRADIO
 
 def main():
     # OpenAI API 키 설정
-    api_key = "EMPTY"
+    api_key="EMPTY"
     
     # Gradio 앱 초기화 및 실행
     app = GRADIO(api_key=api_key)

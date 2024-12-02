@@ -26,7 +26,11 @@ def create_image_prompt(message, encoded_image):
     return [
         {"role": "system", "content": system_content},
         {"role": "user", "content": message},
-        {"role": "user", "content": f"data:image/jpeg;base64,{encoded_image}"}
+        {"role": "user", "content": [
+                    {"type": "image_url", 
+                     "image_url": {"url": f"data:image/jpeg;base64,{encoded_image}"}},
+                ],
+        }
     ]
 
 def create_default_prompt(message):

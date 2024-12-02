@@ -10,7 +10,12 @@ class GRADIO:
         self.image = None
         self.pdf_path = None
         self.image_path = None
-        self.client = OpenAI(api_key=api_key, base_url="http://axonflow.xyz/v1")
+        self.client = OpenAI(
+            api_key=api_key, 
+            base_url="http://axonflow.xyz/v1",
+            timeout=30.0,  # 타임아웃 30초 설정
+            max_retries=3  # 최대 3번 재시도
+        )
 
         with gr.Blocks(fill_height=True) as self.demo:
             chatbot = gr.Chatbot(elem_id="chatbot", bubble_full_width=False, type="messages", scale=1)
@@ -91,15 +96,24 @@ class GRADIO:
         for w in prompt:
             print('\t' + str(w))
             
-        chat_completion = self.client.chat.completions.create(
-            messages=prompt,
-            model="Qwen/Qwen2-VL-2B-Instruct",
-            stream=False,
-        )
+        try:
+            chat_completion = self.client.chat.completions.create(
+                messages=prompt,
+                model="Qwen/Qwen2-VL-2B-Instruct",
+                stream=False,
+            )
+            res = chat_completion.choices[0].message.content
+        except Exception as e:
+            error_msg = f"API 요청 중 오류 발생: {str(e)}"
+            print(error_msg)
+            if "Connection error" in str(e):
+                res = "서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요."
+            elif "timeout" in str(e).lower():
+                res = "요청 시간이 초과되었습니다. 잠시 후 다시 시도해주세요."
+            else:
+                res = "죄송합니다. 요청을 처리하는 중 오류가 발생했습니다."
 
-        res = chat_completion.choices[0].message.content
         print("Response:", res, '\n\n\n')
-
         chat_history.append({"role": "assistant", "content": res})
         return "", chat_history
 
